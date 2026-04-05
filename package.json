@@ -5,6 +5,8 @@
   "scripts": {
     "smoke-check": "node scripts/smoke-check.cjs",
     "openclaw:config": "node skills/openclaw-message-stream/scripts/generate-openclaw-config.mjs --output openclaw-message-stream.config.json",
+    "openclaw:config:merge": "node scripts/openclaw-config.mjs --config openclaw.config.json --write",
+    "openclaw:config:remove": "node scripts/openclaw-config.mjs --config openclaw.config.json --action remove --write",
     "test:e2e": "vitest run --config vitest.config.ts"
   },
   "type": "module",

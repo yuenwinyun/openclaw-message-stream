@@ -76,6 +76,30 @@ cp -R ./skills/openclaw-message-stream ./skills
 npm run openclaw:config
 ```
 
+Merge this plugin into an existing OpenClaw config file (in place, one line):
+
+```bash
+node scripts/openclaw-config.mjs --config /path/to/openclaw.config.json --plugin-root /abs/path/to/openclaw-message-stream --mode hybrid --write
+```
+
+Or using npm scripts:
+
+```bash
+npm run openclaw:config:merge -- --config /path/to/openclaw.config.json --mode scheduled --plugin-root /abs/path/to/openclaw-message-stream
+```
+
+Remove this plugin from an existing config file (in place, one line):
+
+```bash
+node scripts/openclaw-config.mjs --action remove --config /path/to/openclaw.config.json --plugin-root /abs/path/to/openclaw-message-stream --write
+```
+
+Or using npm scripts:
+
+```bash
+npm run openclaw:config:remove -- --config /path/to/openclaw.config.json --plugin-root /abs/path/to/openclaw-message-stream
+```
+
 ## Offboard / remove this integration
 
 Package uninstall:
