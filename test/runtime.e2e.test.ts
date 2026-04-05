@@ -222,4 +222,74 @@ describe("message stream runtime e2e", () => {
     expect(report.mode).toBe("streaming");
     await runtime.stop();
   });
+
+  it("emits a complete message stream record with finding details", async () => {
+    const runtime = createMessageStreamRuntime({
+      api: {
+        logger,
+      },
+      stateDir: "/tmp/openclaw-message-stream",
+      runtimeConfig: {
+        plugins: {
+          entries: {
+            "openclaw-message-stream": {
+              config: {
+                output: { dryRun: false },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const payloadText = "api key exposed: sk-12345678901234567890";
+
+    gatewayRequestMock.mockResolvedValue({
+      messages: [
+        {
+          messageId: "m3",
+          timestamp: 1_700_000_000_001,
+          sender: "agent",
+          role: "assistant",
+          content: payloadText,
+        },
+      ],
+    });
+
+    const report = await runtime.runOnce({
+      mode: "one-shot",
+      sessionKeys: ["session-a"],
+      dryRun: false,
+    });
+
+    expect(report.emitted).toBe(1);
+    expect(report.messagesAnalyzed).toBe(1);
+    expect(report.matchesFound).toBe(1);
+    expect(emitMessageMatchMock).toHaveBeenCalledTimes(1);
+
+    const emitted = emitMessageMatchMock.mock.calls[0]?.[0];
+    expect(emitted).toBeDefined();
+    expect(emitted).toMatchObject({
+      mode: "one-shot",
+      analyzedText: payloadText,
+      record: {
+        plugin: "openclaw-message-stream",
+        mode: "one-shot",
+        sessionKey: "session-a",
+        messageId: "m3",
+        sender: "agent",
+        messageRole: "assistant",
+        messageTimestamp: 1_700_000_000_001,
+        content: payloadText,
+        matched: true,
+      },
+    });
+    const record = emitted?.record;
+    expect(typeof record?.score).toBe("number");
+    expect(record?.score).toBeGreaterThan(0);
+    expect((record?.findings ?? []).length).toBeGreaterThan(0);
+    expect((record?.findings ?? []).some((finding) => finding.rule === "pii" && finding.label === "apiKey")).toBe(true);
+
+    await runtime.stop();
+  });
 });

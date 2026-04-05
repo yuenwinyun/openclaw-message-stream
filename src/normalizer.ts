@@ -70,6 +70,34 @@ function fallbackText(raw: unknown): string {
   }
 }
 
+function normalizeSender(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  if (!isObject(value)) {
+    return undefined;
+  }
+
+  const rawSender = value as {
+    name?: unknown;
+    id?: unknown;
+    email?: unknown;
+    handle?: unknown;
+  };
+  const sender =
+    toStringIfDefined(rawSender.name) ??
+    toStringIfDefined(rawSender.id) ??
+    toStringIfDefined(rawSender.email) ??
+    toStringIfDefined(rawSender.handle);
+  return sender;
+}
+
+function toStringIfDefined(value: unknown): string | undefined {
+  return typeof value === "string" ? (value.trim().length > 0 ? value.trim() : undefined) : undefined;
+}
+
 export function normalizeSessionMessage(
   sessionKey: string,
   payload: unknown,
@@ -87,7 +115,7 @@ export function normalizeSessionMessage(
     : isObject(raw.__openclaw)
       ? (raw.__openclaw as Record<string, unknown>)
       : {};
-  const sender = isObject(message.sender) ? String(message.sender).trim() : undefined;
+  const sender = normalizeSender(message.sender);
   const role = normalizeRole(message);
   const messageSeq =
     typeof raw.messageSeq === "number" && Number.isFinite(raw.messageSeq)
