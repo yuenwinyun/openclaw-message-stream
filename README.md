@@ -12,6 +12,7 @@ The plugin is a local package and is expected to be configured in OpenClaw’s p
 
 ## Prerequisites
 
+- OpenClaw `>= 2026.4.1` (this plugin supports plugin API compatibility `>=2026.4.1`)
 - Node.js 18+ is installed
 - `npm` or `pnpm` is installed
 - `openclaw` CLI is in `PATH`, or containerized OpenClaw workflow is available
@@ -38,14 +39,75 @@ node skills/openclaw-message-stream/scripts/generate-openclaw-config.mjs --mode 
 
 The generated config already sets `plugins.enabled`, `plugins.allow`, `plugins.load.paths`, and default plugin config for `openclaw-message-stream`.
 
-## Onboard this integration package
+## Onboard this integration package in an OpenClaw host (recommended)
 
-This package ships both:
+Install the package into your OpenClaw host project:
+
+```bash
+cd /path/to/openclaw-host
+npm install --save-dev @yuenwinyun/openclaw-message-stream
+# or
+pnpm add --save-dev @yuenwinyun/openclaw-message-stream
+```
+
+Add plugin config to an existing OpenClaw config file:
+
+```bash
+OPENCLAW_PLUGIN_CONFIG="/path/to/openclaw.config.json"
+PLUGIN_ROOT="/path/to/openclaw-host/node_modules/@yuenwinyun/openclaw-message-stream"
+
+node "$PLUGIN_ROOT/scripts/openclaw-config.mjs" \
+  --config "$OPENCLAW_PLUGIN_CONFIG" \
+  --plugin-root "$PLUGIN_ROOT" \
+  --mode hybrid \
+  --write
+```
+
+Use `--mode scheduled` for scheduled-only behavior.
+
+Reload/restart OpenClaw so the config is reloaded, then verify:
+
+```bash
+openclaw plugins list --json
+openclaw plugins inspect openclaw-message-stream --json
+openclaw plugins doctor
+```
+
+If you are developing this package from its source tree, you can generate a starter file directly:
+
+```bash
+npm run openclaw:config
+```
+
+## Optional: remove this package from an existing OpenClaw config (in place)
+
+```bash
+OPENCLAW_PLUGIN_CONFIG="/path/to/openclaw.config.json"
+PLUGIN_ROOT="/path/to/openclaw-host/node_modules/@yuenwinyun/openclaw-message-stream"
+
+node "$PLUGIN_ROOT/scripts/openclaw-config.mjs" \
+  --action remove \
+  --config "$OPENCLAW_PLUGIN_CONFIG" \
+  --plugin-root "$PLUGIN_ROOT" \
+  --write
+```
+
+Reload/restart OpenClaw, then verify removal:
+
+```bash
+openclaw plugins list --json
+openclaw plugins inspect openclaw-message-stream --json
+openclaw plugins doctor
+```
+
+## Optional: local assistant skill onboarding
+
+This package also ships:
 
 - `skills/openclaw-message-stream/SKILL.md`
 - `skills/openclaw-message-stream/scripts/generate-openclaw-config.mjs`
 
-If your environment supports local assistant skill folders, copy the skill folder into the local skill path:
+If your environment supports assistant skill folders:
 
 ```bash
 SKILL_PATH="/path/to/assistant/skills"
@@ -53,7 +115,6 @@ mkdir -p "$SKILL_PATH"
 cp -R ./skills/openclaw-message-stream "$SKILL_PATH/"
 ```
 
-Restart or reload your assistant if required by your environment.
 Validate:
 
 ```bash
@@ -64,70 +125,9 @@ Environment examples:
 
 | Environment | Suggested skill path | Note |
 |---|---|---|
-| OpenClaw-native setup | `./skills` in your OpenClaw workspace | copy folder and load as a workspace skill bundle |
+| OpenClaw-native workspace setup | `./skills` | load as a local workspace bundle |
 | Codex | `$HOME/.codex/skills` | restart Codex after copy |
-| Claude-compatible local workflow | your local custom skills folder | use your existing local skill loading convention |
-
-After onboarding, use:
-
-```bash
-npm run openclaw:config
-```
-
-to generate a starter OpenClaw config, then run:
-
-```bash
-openclaw plugins list --json
-```
-
-to confirm `openclaw-message-stream` appears as a loaded plugin, then validate details:
-
-```bash
-openclaw plugins inspect openclaw-message-stream --json
-```
-
-OpenClaw-only quick path (always valid):
-
-```bash
-cp -R ./skills/openclaw-message-stream ./skills
-npm run openclaw:config
-```
-
-Merge this plugin into an existing OpenClaw config file (in place, one line):
-
-```bash
-node scripts/openclaw-config.mjs --config /path/to/openclaw.config.json --plugin-root /abs/path/to/openclaw-message-stream --mode hybrid --write
-```
-
-Or using npm scripts:
-
-```bash
-npm run openclaw:config:merge -- --config /path/to/openclaw.config.json --mode hybrid --plugin-root /abs/path/to/openclaw-message-stream
-```
-
-Validate plugin visibility after merge:
-
-```bash
-openclaw plugins inspect openclaw-message-stream --json
-```
-
-Remove this plugin from an existing config file (in place, one line):
-
-```bash
-node scripts/openclaw-config.mjs --action remove --config /path/to/openclaw.config.json --plugin-root /abs/path/to/openclaw-message-stream --write
-```
-
-Or using npm scripts:
-
-```bash
-npm run openclaw:config:remove -- --config /path/to/openclaw.config.json --plugin-root /abs/path/to/openclaw-message-stream
-```
-
-Validate removal:
-
-```bash
-openclaw plugins inspect openclaw-message-stream --json
-```
+| Claude-compatible local workflow | your local custom skills folder | use your local loading convention |
 
 ## Offboard / remove this integration
 
@@ -153,8 +153,24 @@ fi
 
 OpenClaw/plugin cleanup:
 
-- remove the plugin entry `openclaw-message-stream` from your OpenClaw config
+- remove `plugins.entries["openclaw-message-stream"]`
+- remove `openclaw-message-stream` from `plugins.allow`
+- remove the `openclaw-message-stream` path entry from `plugins.load.paths`
 - restart/reload OpenClaw config and services so plugin unregistration takes effect
+- verify with:
+
+```bash
+openclaw plugins list --json
+openclaw plugins inspect openclaw-message-stream --json
+openclaw plugins doctor
+```
+
+Optional cleanup of generated artifacts:
+
+```bash
+rm -f /path/to/openclaw-state/openclaw-message-stream-output.jsonl
+rm -f /path/to/openclaw-state/.openclaw-message-stream-state.json
+```
 
 One-line offboard command (do once):
 
@@ -162,7 +178,7 @@ One-line offboard command (do once):
 read -r -p "Type 'remove-openclaw-message-stream' to confirm: " confirm && \
 [ "$confirm" = "remove-openclaw-message-stream" ] || exit 1 && \
 SKILL_PATH="${SKILL_PATH:-$HOME/.codex/skills}" && \
-npm remove @yuenwinyun/openclaw-message-stream || pnpm remove @yuenwinyun/openclaw-message-stream && \
+if npm remove @yuenwinyun/openclaw-message-stream; then :; else pnpm remove @yuenwinyun/openclaw-message-stream; fi && \
 if [ -d "$SKILL_PATH/openclaw-message-stream" ]; then rm -rf "$SKILL_PATH/openclaw-message-stream"; fi
 ```
 
