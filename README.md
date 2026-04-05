@@ -76,6 +76,28 @@ cp -R ./skills/openclaw-message-stream ./skills
 npm run openclaw:config
 ```
 
+## Offboard / remove this integration
+
+Package uninstall:
+
+```bash
+npm remove @yuenwinyun/openclaw-message-stream
+# or
+pnpm remove @yuenwinyun/openclaw-message-stream
+```
+
+Skill removal (local assistant workflows):
+
+```bash
+SKILL_PATH="/path/to/assistant/skills"
+rm -rf "$SKILL_PATH/openclaw-message-stream"
+```
+
+OpenClaw/plugin cleanup:
+
+- remove the plugin entry `openclaw-message-stream` from your OpenClaw config
+- restart/reload OpenClaw config and services so plugin unregistration takes effect
+
 ## Modes
 
 `mode` controls runtime behavior:
