@@ -29,8 +29,13 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
+      - name: Enable pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
       - name: Validate version-tag match for tag releases
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -45,7 +50,7 @@ jobs:
 
       - name: Run release checks
         if: github.event_name == 'workflow_dispatch' && inputs.run_release_checks
-        run: npm run release:check
+        run: pnpm run release:check
         shell: bash
 
       - name: Publish to npm
@@ -53,4 +58,4 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public --no-git-checks
+        run: pnpm publish --access public --no-git-checks
