@@ -11,6 +11,7 @@ const stateDir = mkdtempSync(path.join(tmpdir(), `${PLUGIN_ID}-host-e2e-`));
 const configPath = path.join(stateDir, "openclaw-host-e2e.json");
 const openclawCliPath = process.env.OPENCLAW_CLI_PATH;
 const openclawDockerImage = process.env.OPENCLAW_DOCKER_IMAGE?.trim();
+const OPENCLAW_TEST_TIMEOUT_MS = 60_000;
 
 const runner = createOpenClawHostRunner({
   pluginRoot: PLUGIN_ROOT,
@@ -54,7 +55,7 @@ hostDescribe(`openclaw plugin host e2e${hostSkipReason ? ` (${hostSkipReason})` 
     writeOpenClawConfig();
   });
 
-  it("exposes the plugin in openclaw list --json", async () => {
+  it("exposes the plugin in openclaw list --json", { timeout: OPENCLAW_TEST_TIMEOUT_MS }, async () => {
     const result = await runner.runOpenClaw(["plugins", "list", "--json"], { timeoutMs: 60_000 });
     const parsed = parseOpenClawJsonOutput(result.output) as {
       plugins?: {
@@ -70,7 +71,7 @@ hostDescribe(`openclaw plugin host e2e${hostSkipReason ? ` (${hostSkipReason})` 
     expect(plugin?.source).toContain(runner.pluginPathForHostConfig);
   });
 
-  it("discovers plugin metadata and /msgstream command via openclaw inspect", async () => {
+  it("discovers plugin metadata and /msgstream command via openclaw inspect", { timeout: OPENCLAW_TEST_TIMEOUT_MS }, async () => {
     const result = await runner.runOpenClaw(["plugins", "inspect", PLUGIN_ID, "--json"], { timeoutMs: 60_000 });
     const parsed = parseOpenClawJsonOutput(result.output) as {
       plugin?: { id?: string; status?: string; commands?: string[]; services?: string[] };
@@ -86,7 +87,7 @@ hostDescribe(`openclaw plugin host e2e${hostSkipReason ? ` (${hostSkipReason})` 
     expect((plugin?.services ?? parsed.services ?? []).includes(PLUGIN_ID)).toBe(true);
   });
 
-  it("passes openclaw plugin doctor checks after registration", async () => {
+  it("passes openclaw plugin doctor checks after registration", { timeout: OPENCLAW_TEST_TIMEOUT_MS }, async () => {
     const output = await runner.runOpenClaw(["plugins", "doctor"]);
     expect(output.output).toContain("No plugin issues detected.");
   });
