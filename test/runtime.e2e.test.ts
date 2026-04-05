@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const emitMessageMatchMock = vi.hoisted(() => vi.fn(async () => undefined));
 const createCheckpointStoreMock = vi.hoisted(() => vi.fn());
 const gatewayRequestMock = vi.hoisted(() => vi.fn(async () => ({ messages: [] })));
+const gatewayClientCtorArgs = vi.hoisted(() => vi.fn());
 const gatewayClientStartMock = vi.hoisted(() => vi.fn());
 const gatewayClientStopMock = vi.hoisted(() => vi.fn(async () => undefined));
 
@@ -23,6 +24,7 @@ vi.mock("../src/checkpoint.js", () => ({
 
 vi.mock("openclaw/plugin-sdk/gateway-runtime", () => ({
   GatewayClient: vi.fn(function () {
+    gatewayClientCtorArgs(arguments[0]);
     return {
     request: gatewayRequestMock,
     start: gatewayClientStartMock,
@@ -53,6 +55,7 @@ describe("message stream runtime e2e", () => {
     gatewayRequestMock.mockReset();
     gatewayClientStartMock.mockClear();
     gatewayClientStopMock.mockClear();
+    gatewayClientCtorArgs.mockClear();
     emitMessageMatchMock.mockClear();
     vi.mocked(gatewayRequestMock).mockReset();
     vi.mocked(gatewayClientStartMock).mockReset();
@@ -131,6 +134,69 @@ describe("message stream runtime e2e", () => {
     );
     expect(checkpointStoreState.markSeen).toHaveBeenCalledTimes(1);
     expect(emitMessageMatchMock).not.toHaveBeenCalled();
+    await runtime.stop();
+  });
+
+  it("inherits runtime gateway URL and token when plugin gateway is missing", async () => {
+    const runtime = createMessageStreamRuntime({
+      api: {
+        logger,
+      },
+      stateDir: "/tmp/openclaw-message-stream",
+      runtimeConfig: {
+        gateway: {
+          auth: {
+            token: "host-runtime-token",
+          },
+          url: "ws://127.0.0.1:18789",
+        },
+        plugins: {
+          entries: {
+            "openclaw-message-stream": {
+              config: {},
+            },
+          },
+        },
+      },
+    });
+
+    await (runtime as unknown as { getGatewayClient: () => Promise<unknown> }).getGatewayClient();
+
+    const initArg = gatewayClientCtorArgs.mock.calls.at(-1)?.[0] as {
+      url?: string;
+      token?: string;
+    } | undefined;
+    expect(initArg?.url).toBe("ws://127.0.0.1:18789");
+    expect(initArg?.token).toBe("host-runtime-token");
+    await runtime.stop();
+  });
+
+  it("uses local default gateway URL when host mode is local and no host URL is set", async () => {
+    const runtime = createMessageStreamRuntime({
+      api: {
+        logger,
+      },
+      stateDir: "/tmp/openclaw-message-stream",
+      runtimeConfig: {
+        gateway: {
+          mode: "local",
+        },
+        plugins: {
+          entries: {
+            "openclaw-message-stream": {
+              config: {},
+            },
+          },
+        },
+      },
+    });
+
+    await (runtime as unknown as { getGatewayClient: () => Promise<unknown> }).getGatewayClient();
+
+    const initArg = gatewayClientCtorArgs.mock.calls.at(-1)?.[0] as {
+      url?: string;
+    } | undefined;
+    expect(initArg?.url).toBe("ws://127.0.0.1:18789");
     await runtime.stop();
   });
 

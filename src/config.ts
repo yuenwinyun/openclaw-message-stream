@@ -5,6 +5,7 @@ const DEFAULT_BATCH_SIZE = 200;
 const DEFAULT_MAX_SESSIONS = 120;
 const DEFAULT_INTERVAL_MS = 60_000;
 const DEFAULT_FILE_PATH = "openclaw-message-stream-output.jsonl";
+export const DEFAULT_LOCAL_GATEWAY_URL = "ws://127.0.0.1:18789";
 
 export const DEFAULT_PLUGN_MSG_STREAM_KEYWORDS = [
   "password",
@@ -84,6 +85,58 @@ function normalizeStringArray(value: unknown): string[] {
 
 function normalizeScopeList(value: unknown): string[] {
   return normalizeStringArray(value).filter(Boolean).slice(0, 32);
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function resolveHostGatewayToken(hostGateway: Record<string, unknown> | null): string {
+  const hostAuth = asRecord(hostGateway?.auth);
+  return normalizeString(hostAuth?.token || hostGateway?.token);
+}
+
+function resolveHostGatewayPassword(hostGateway: Record<string, unknown> | null): string {
+  const hostAuth = asRecord(hostGateway?.auth);
+  return normalizeString(hostAuth?.password || hostGateway?.password);
+}
+
+function resolveHostGatewayUrl(hostGateway: Record<string, unknown> | null): string {
+  const hostRemote = asRecord(hostGateway?.remote);
+  const remoteUrl = normalizeString(hostRemote?.url);
+  if (remoteUrl) {
+    return remoteUrl;
+  }
+  const directUrl = normalizeString(hostGateway?.url);
+  if (directUrl) {
+    return directUrl;
+  }
+  const mode = normalizeString(hostGateway?.mode).toLowerCase();
+  if (mode === "remote") {
+    return "";
+  }
+  return DEFAULT_LOCAL_GATEWAY_URL;
+}
+
+export function mergeGatewayConfigWithHost(
+  pluginGateway: unknown,
+  hostGateway: unknown,
+): Record<string, unknown> {
+  const plugin = asRecord(pluginGateway) ?? {};
+  const host = asRecord(hostGateway) ?? {};
+
+  return {
+    ...host,
+    ...plugin,
+    url: normalizeString(plugin.url) || resolveHostGatewayUrl(host),
+    token: normalizeString(plugin.token) || resolveHostGatewayToken(host),
+    password: normalizeString(plugin.password) || resolveHostGatewayPassword(host),
+    connectTimeoutMs: plugin.connectTimeoutMs === undefined ? host.connectTimeoutMs : plugin.connectTimeoutMs,
+    scopes: plugin.scopes === undefined ? host.scopes : plugin.scopes,
+  };
 }
 
 function normalizeFilterConfig(value: unknown): MessageStreamFilterConfig {

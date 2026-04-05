@@ -1,4 +1,7 @@
-import { parseMessageStreamConfig } from "./config.js";
+import {
+  mergeGatewayConfigWithHost,
+  parseMessageStreamConfig,
+} from "./config.js";
 import { MessageStreamRuntime } from "./runtime.js";
 import type { MessageStreamMode } from "./types.js";
 import type { OpenClawConfig, OpenClawPluginApi, OpenClawPluginService } from "openclaw/plugin-sdk/plugin-entry";
@@ -24,6 +27,10 @@ function readPluginConfigFromOpenClawConfig(config?: OpenClawConfig): unknown {
   return pluginEntry.config ?? {};
 }
 
+function readGatewayConfigFromRuntime(config?: OpenClawConfig): unknown {
+  return asRecord(config)?.gateway;
+}
+
 function resolveRawPluginConfig(params: {
   api: OpenClawPluginApi;
   runtimeConfig?: OpenClawConfig;
@@ -42,7 +49,14 @@ function resolveMessageStreamConfig(params: {
   modeOverride?: MessageStreamMode;
 }): ReturnType<typeof parseMessageStreamConfig> {
   const raw = resolveRawPluginConfig(params);
-  const parsed = parseMessageStreamConfig(raw);
+  const pluginConfig = asRecord(raw) ?? {};
+  const hostGatewayConfig = readGatewayConfigFromRuntime(params.runtimeConfig) ??
+    readGatewayConfigFromRuntime(params.api.config as OpenClawConfig | undefined);
+  const mergedConfig = {
+    ...pluginConfig,
+    gateway: mergeGatewayConfigWithHost(pluginConfig.gateway, hostGatewayConfig),
+  };
+  const parsed = parseMessageStreamConfig(mergedConfig);
   if (!params.modeOverride || parsed.mode === params.modeOverride) {
     return parsed;
   }

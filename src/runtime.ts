@@ -490,10 +490,20 @@ export class MessageStreamRuntime {
     }
   }
 
+  private resolveGatewayUrl(): string {
+    const gatewayUrl = (this.config.gateway.url ?? "").trim();
+    if (!gatewayUrl) {
+      throw new Error(
+        `[${PLUGIN_ID}] gateway.url is missing. Set plugins.entries.${PLUGIN_ID}.config.gateway.url or configure a non-empty host gateway URL.`,
+      );
+    }
+    return gatewayUrl;
+  }
+
   private async getGatewayClient(): Promise<GatewayClient> {
     if (!this.gatewayClient) {
       this.gatewayClient = new GatewayClient({
-        url: this.config.gateway.url,
+        url: this.resolveGatewayUrl(),
         token: this.config.gateway.token,
         password: this.config.gateway.password,
         connectChallengeTimeoutMs: this.config.gateway.connectTimeoutMs,
