@@ -165,9 +165,11 @@ describe("message stream runtime e2e", () => {
     const initArg = gatewayClientCtorArgs.mock.calls.at(-1)?.[0] as {
       url?: string;
       token?: string;
+      scopes?: string[];
     } | undefined;
     expect(initArg?.url).toBe("ws://127.0.0.1:18789");
     expect(initArg?.token).toBe("host-runtime-token");
+    expect(initArg?.scopes).toContain("operator.read");
     await runtime.stop();
   });
 
@@ -195,8 +197,10 @@ describe("message stream runtime e2e", () => {
 
     const initArg = gatewayClientCtorArgs.mock.calls.at(-1)?.[0] as {
       url?: string;
+      scopes?: string[];
     } | undefined;
     expect(initArg?.url).toBe("ws://127.0.0.1:18789");
+    expect(initArg?.scopes).toContain("operator.read");
     await runtime.stop();
   });
 

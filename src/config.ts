@@ -6,6 +6,7 @@ const DEFAULT_MAX_SESSIONS = 120;
 const DEFAULT_INTERVAL_MS = 60_000;
 const DEFAULT_FILE_PATH = "openclaw-message-stream-output.jsonl";
 export const DEFAULT_LOCAL_GATEWAY_URL = "ws://127.0.0.1:18789";
+const DEFAULT_REQUIRED_GATEWAY_SCOPES = ["operator.read"];
 
 export const DEFAULT_PLUGN_MSG_STREAM_KEYWORDS = [
   "password",
@@ -87,6 +88,18 @@ function normalizeScopeList(value: unknown): string[] {
   return normalizeStringArray(value).filter(Boolean).slice(0, 32);
 }
 
+function normalizeScopesWithRequiredDefaults(scopes: string[]): string[] {
+  const merged = scopes
+    .filter((scope) => scope)
+    .map((scope) => scope.toLowerCase())
+    .slice(0, 32);
+  const set = new Set(merged);
+  for (const scope of DEFAULT_REQUIRED_GATEWAY_SCOPES) {
+    set.add(scope);
+  }
+  return Array.from(set);
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -135,7 +148,9 @@ export function mergeGatewayConfigWithHost(
     token: normalizeString(plugin.token) || resolveHostGatewayToken(host),
     password: normalizeString(plugin.password) || resolveHostGatewayPassword(host),
     connectTimeoutMs: plugin.connectTimeoutMs === undefined ? host.connectTimeoutMs : plugin.connectTimeoutMs,
-    scopes: plugin.scopes === undefined ? host.scopes : plugin.scopes,
+    scopes: normalizeScopesWithRequiredDefaults(
+      normalizeScopeList(plugin.scopes === undefined ? host.scopes : plugin.scopes),
+    ),
   };
 }
 

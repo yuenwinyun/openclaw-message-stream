@@ -80,6 +80,8 @@ Set under `plugins.entries.openclaw-message-stream.config`.
 - `output`: file/webhook/console output controls
 - `output.dryRun`: analyze and checkpoint without external output
 
+`gateway.scopes` defaults to include `operator.read` so the plugin can read sessions for scanning.
+
 ## Emitted message record
 
 Each emitted record contains:
