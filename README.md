@@ -1,71 +1,44 @@
 # openclaw-message-stream
 
-Plugin that scans OpenClaw session transcripts and emits analysis findings for keyword/regex/PII/sentiment signals.
+Plugin that scans OpenClaw session transcripts and emits structured findings for keyword, regex, PII, and sentiment signals.
 
-## Installation
+The output is designed for AI agents, assistants, and runtime orchestrators that need clear message-level alerts.
 
-The plugin is a local package and is expected to be configured in OpenClaw’s plugin list. The package metadata is already set to:
+## Quick onboarding
 
-- package: `@yuenwinyun/openclaw-message-stream`
-- entry: `index.ts`
-- id: `openclaw-message-stream`
+### Install
 
-## Prerequisites
-
-- OpenClaw `>= 2026.4.1` (this plugin supports plugin API compatibility `>=2026.4.1`)
-- Node.js 18+ is installed
-- `npm` or `pnpm` is installed
-- `openclaw` CLI is in `PATH`, or containerized OpenClaw workflow is available
-
-Run commands from the repository root unless a different working directory is explicitly stated.
-
-### Skill helper (recommended)
-
-This repository includes a skill under:
-
-- `skills/openclaw-message-stream`
-
-Use it to generate a starter OpenClaw config quickly:
+- Install from npm:
 
 ```bash
-npm run openclaw:config
-```
-
-Optional:
-
-```bash
-node skills/openclaw-message-stream/scripts/generate-openclaw-config.mjs --mode scheduled --output openclaw-message-stream.config.json
-```
-
-The generated config already sets `plugins.enabled`, `plugins.allow`, `plugins.load.paths`, and default plugin config for `openclaw-message-stream`.
-
-## Onboard this integration package in an OpenClaw host (recommended)
-
-Install the package into your OpenClaw host project:
-
-```bash
-cd /path/to/openclaw-host
 npm install --save-dev @yuenwinyun/openclaw-message-stream
-# or
+```
+
+- Or with pnpm:
+
+```bash
 pnpm add --save-dev @yuenwinyun/openclaw-message-stream
 ```
 
-Add plugin config to an existing OpenClaw config file:
+### Add plugin to an OpenClaw host
+
+Run in the OpenClaw host project:
 
 ```bash
-OPENCLAW_PLUGIN_CONFIG="/path/to/openclaw.config.json"
-PLUGIN_ROOT="/path/to/openclaw-host/node_modules/@yuenwinyun/openclaw-message-stream"
+npm install --save-dev @yuenwinyun/openclaw-message-stream
+```
 
-node "$PLUGIN_ROOT/scripts/openclaw-config.mjs" \
-  --config "$OPENCLAW_PLUGIN_CONFIG" \
-  --plugin-root "$PLUGIN_ROOT" \
+Then merge plugin settings into OpenClaw config:
+
+```bash
+node node_modules/@yuenwinyun/openclaw-message-stream/scripts/openclaw-config.mjs \
+  --config /path/to/openclaw.config.json \
+  --plugin-root /path/to/openclaw-host/node_modules/@yuenwinyun/openclaw-message-stream \
   --mode hybrid \
   --write
 ```
 
-Use `--mode scheduled` for scheduled-only behavior.
-
-Reload/restart OpenClaw so the config is reloaded, then verify:
+Reload OpenClaw and verify:
 
 ```bash
 openclaw plugins list --json
@@ -73,65 +46,69 @@ openclaw plugins inspect openclaw-message-stream --json
 openclaw plugins doctor
 ```
 
-If you are developing this package from its source tree, you can generate a starter file directly:
+### One-line starter config (optional)
+
+From this package folder:
 
 ```bash
 npm run openclaw:config
 ```
 
-## Optional: remove this package from an existing OpenClaw config (in place)
+## Runtime commands for agents
 
-```bash
-OPENCLAW_PLUGIN_CONFIG="/path/to/openclaw.config.json"
-PLUGIN_ROOT="/path/to/openclaw-host/node_modules/@yuenwinyun/openclaw-message-stream"
+Use `/msgstream` in authorized sessions:
 
-node "$PLUGIN_ROOT/scripts/openclaw-config.mjs" \
-  --action remove \
-  --config "$OPENCLAW_PLUGIN_CONFIG" \
-  --plugin-root "$PLUGIN_ROOT" \
-  --write
+```text
+/msgstream
+/msgstream one-shot
+/msgstream one-shot --dry-run
+/msgstream --mode scheduled --sessions session-a,session-b
 ```
 
-Reload/restart OpenClaw, then verify removal:
+## Configuration
 
-```bash
-openclaw plugins list --json
-openclaw plugins inspect openclaw-message-stream --json
-openclaw plugins doctor
-```
+Set under `plugins.entries.openclaw-message-stream.config`.
 
-## Optional: local assistant skill onboarding
+- `mode`: `hybrid`, `scheduled`, `streaming`, `one-shot` (default `hybrid`)
+- `scan.limit`: max sessions returned from session list
+- `scan.batchSize`: max messages fetched per session scan
+- `scan.maxSessions`: per-run session safety cap
+- `scan.intervalMs`: poll interval for scheduled mode
+- `filters`: label/agent/spawnedBy/search filters
+- `analysis`: keyword + regex + PII + sentiment config
+- `gateway`: OpenClaw gateway connection settings
+- `output`: file/webhook/console output controls
+- `output.dryRun`: analyze and checkpoint without external output
 
-This package also ships:
+## Emitted message record
 
-- `skills/openclaw-message-stream/SKILL.md`
-- `skills/openclaw-message-stream/scripts/generate-openclaw-config.mjs`
+Each emitted record contains:
 
-If your environment supports assistant skill folders:
+- plugin
+- mode
+- session key
+- message id and seq
+- sender and role
+- message content
+- score and findings
+- match boolean
 
-```bash
-SKILL_PATH="/path/to/assistant/skills"
-mkdir -p "$SKILL_PATH"
-cp -R ./skills/openclaw-message-stream "$SKILL_PATH/"
-```
+Common outputs:
 
-Validate:
+- console summary
+- JSONL file output (optional)
+- webhook POST payload (optional)
 
-```bash
-test -d "$SKILL_PATH/openclaw-message-stream" && echo "skill copied"
-```
+## Notes
 
-Environment examples:
+- `dry-run` mode still runs analysis and updates checkpoint state.
+- Checkpoint deduplication is based on message id/sequence and content hash.
+- Streaming mode needs valid gateway credentials/scopes.
 
-| Environment | Suggested skill path | Note |
-|---|---|---|
-| OpenClaw-native workspace setup | `./skills` | load as a local workspace bundle |
-| Codex | `$HOME/.codex/skills` | restart Codex after copy |
-| Claude-compatible local workflow | your local custom skills folder | use your local loading convention |
+## Remove plugin safely
 
-## Offboard / remove this integration
-
-Package uninstall:
+- Remove from OpenClaw config (plugin entry + allowed list + load paths).
+- Uninstall package:
 
 ```bash
 npm remove @yuenwinyun/openclaw-message-stream
@@ -139,232 +116,16 @@ npm remove @yuenwinyun/openclaw-message-stream
 pnpm remove @yuenwinyun/openclaw-message-stream
 ```
 
-Skill removal (local assistant workflows):
+## AI skill support
 
-```bash
-SKILL_PATH="/path/to/assistant/skills"
-if [ -d "$SKILL_PATH/openclaw-message-stream" ]; then \
-  echo "Removing $SKILL_PATH/openclaw-message-stream" && \
-  rm -rf "$SKILL_PATH/openclaw-message-stream"; \
-else \
-  echo "No local skill found at $SKILL_PATH/openclaw-message-stream"; \
-fi
-```
+This package also ships an OpenClaw/assistant skill at:
 
-OpenClaw/plugin cleanup:
+- `skills/openclaw-message-stream/SKILL.md`
 
-- remove `plugins.entries["openclaw-message-stream"]`
-- remove `openclaw-message-stream` from `plugins.allow`
-- remove the `openclaw-message-stream` path entry from `plugins.load.paths`
-- restart/reload OpenClaw config and services so plugin unregistration takes effect
-- verify with:
+You can copy it into your assistant skill folder for easier onboarding and common workflows.
 
-```bash
-openclaw plugins list --json
-openclaw plugins inspect openclaw-message-stream --json
-openclaw plugins doctor
-```
+## Developer docs
 
-Optional cleanup of generated artifacts:
+For test, release, and publishing workflows, see:
 
-```bash
-rm -f /path/to/openclaw-state/openclaw-message-stream-output.jsonl
-rm -f /path/to/openclaw-state/.openclaw-message-stream-state.json
-```
-
-One-line offboard command (do once):
-
-```bash
-read -r -p "Type 'remove-openclaw-message-stream' to confirm: " confirm && \
-[ "$confirm" = "remove-openclaw-message-stream" ] || exit 1 && \
-SKILL_PATH="${SKILL_PATH:-$HOME/.codex/skills}" && \
-if npm remove @yuenwinyun/openclaw-message-stream; then :; else pnpm remove @yuenwinyun/openclaw-message-stream; fi && \
-if [ -d "$SKILL_PATH/openclaw-message-stream" ]; then rm -rf "$SKILL_PATH/openclaw-message-stream"; fi
-```
-
-## Modes
-
-`mode` controls runtime behavior:
-
-- `hybrid` (default): one-time scan (with checkpoint state), then subscribe to selected sessions for live stream events.
-- `scheduled`: periodically scan sessions on interval.
-- `streaming`: subscribe only, process real-time events.
-- `one-shot`: one-time scan (without periodic resync).
-
-## Plugin Command
-
-Use `/msgstream` inside an authorized channel to run an immediate analysis pass.
-
-Examples:
-
-```text
-/msgstream
-/msgstream one-shot
-/msgstream one-shot --dry-run
-/msgstream --mode scheduled --sessions session-a,session-b
-/msgstream --help
-```
-
-### Command options
-
-- `--mode <one-shot|scheduled|streaming|hybrid>`: Override mode for this invocation.
-- `--sessions` / `--session` / `--session-keys`: Optional comma-separated session filters.
-- `--dry-run` / `--no-dry-run`: Override output emission behavior.
-- `--help`: Show usage text.
-
-## Configuration
-
-Set plugin config under `plugins.entries.openclaw-message-stream.config`.
-
-### Core
-
-- `enabled` (boolean, default: `true`)
-- `pluginName` (string, default: `"openclaw-message-stream"`)
-- `mode` (string, default: `"hybrid"`)
-
-### Scan
-
-- `scan.limit` (number): max sessions from `sessions.list`
-- `scan.batchSize` (number): max messages fetched per `sessions.get`
-- `scan.maxSessions` (number): safety cap per scan run
-- `scan.intervalMs` (number): scheduled interval
-
-### Filters
-
-- `filters.includeGlobal` (boolean)
-- `filters.includeUnknown` (boolean)
-- `filters.label` (string)
-- `filters.spawnedBy` (string)
-- `filters.agentId` (string)
-- `filters.search` (string)
-
-### Analysis
-
-- `analysis.keyword.terms` (comma-separated / array)
-- `analysis.keyword.weight`
-- `analysis.regex.patterns`
-- `analysis.regex.enabled`
-- `analysis.pii.detectEmail`
-- `analysis.pii.detectPhone`
-- `analysis.pii.detectApiKey`
-- `analysis.sentiment.enabled`
-
-### Gateway
-
-- `gateway.url`
-- `gateway.token`
-- `gateway.password`
-- `gateway.connectTimeoutMs`
-- `gateway.scopes`
-
-### Output
-
-- `output.filePath` (JSONL path)
-- `output.webhookUrl`
-- `output.console` (boolean)
-- `output.consoleMaxText`
-- `output.payloadMaxBytes`
-- `output.webhookTimeoutMs`
-- `output.emitNoMatches`
-- `output.dryRun`
-- `checkpointFile`
-- `sessionKeys` (optional bootstrap list)
-
-## Runtime Outputs
-
-Each emitted record includes:
-
-- plugin id
-- mode
-- session key
-- message id/seq
-- sender + role
-- content
-- score and findings
-- match boolean
-
-Output sinks:
-
-- append to configured `filePath` as JSONL
-- POST each record to `webhookUrl`
-- concise console summary (`console` enabled by default)
-
-## Notes
-
-- Dry-run mode still performs analysis and checkpoint updates but skips file/webhook output.
-- Checkpoint state is persisted under the plugin state directory and uses message sequence/id/hash for dedupe.
-- Streaming mode requires valid gateway credentials/scopes in config.
-
-## Smoke check
-
-From the plugin folder:
-
-```bash
-node scripts/smoke-check.cjs
-```
-
-or
-
-```bash
-npm run smoke-check
-```
-
-## E2E tests
-
-From the plugin folder:
-
-```bash
-npm run test:e2e
-```
-
-Host-level OpenClaw smoke checks in this repo can run either with a local `openclaw` CLI install or directly through Docker.
-
-```bash
-# Use local CLI (defaults to ./node_modules/openclaw/openclaw.mjs)
-OPENCLAW_CLI_PATH=/absolute/path/to/openclaw.mjs npm run test:e2e
-
-# Or containerized OpenClaw CLI (uses ghcr.io/openclaw/openclaw:latest by default)
-OPENCLAW_DOCKER_IMAGE=ghcr.io/openclaw/openclaw:latest npm run test:e2e
-```
-
-## OpenClaw integration E2E tests (optional)
-
-Set the following environment variables and run the same command to run a real gateway-backed e2e path:
-
-```bash
-OPENCLAW_GATEWAY_URL=http://127.0.0.1:PORT
-OPENCLAW_MSGSTREAM_SESSION_KEYS=session-a,session-b
-OPENCLAW_GATEWAY_TOKEN=... # optional if your gateway requires it
-OPENCLAW_GATEWAY_PASSWORD=... # optional
-OPENCLAW_GATEWAY_SCOPES=... # optional, comma-separated
-OPENCLAW_GATEWAY_CONNECT_TIMEOUT_MS=15000 # optional
-
-npm run test:e2e
-```
-
-If `OPENCLAW_GATEWAY_URL` is not set, the OpenClaw integration test is skipped automatically.
-
-## Release steps
-
-Release flow for this package:
-
-```bash
-# from repo root
-npm run release:check
-npm version patch
-npm run release:publish
-```
-
-`npm run release` runs the check + `npm version patch` + publish in one command.
-
-If your npm account has 2FA enabled, provide an OTP:
-
-```bash
-NPM_OTP=123456 npm run release
-```
-
-or
-
-```bash
-npm publish --access public --otp 123456 --no-git-checks
-```
+- [DEVELOPER.md](./DEVELOPER.md)
