@@ -30,7 +30,7 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Validate version-tag match for tag releases
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
