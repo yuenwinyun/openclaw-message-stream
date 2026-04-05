@@ -10,6 +10,72 @@ The plugin is a local package and is expected to be configured in OpenClaw’s p
 - entry: `index.ts`
 - id: `openclaw-message-stream`
 
+### Skill helper (recommended)
+
+This repository includes a Codex skill under:
+
+- `skills/openclaw-message-stream`
+
+Use it to generate a starter OpenClaw config quickly:
+
+```bash
+npm run openclaw:config
+```
+
+Optional:
+
+```bash
+node skills/openclaw-message-stream/scripts/generate-openclaw-config.mjs --mode scheduled --output openclaw-message-stream.config.json
+```
+
+The generated config already sets `plugins.enabled`, `plugins.allow`, `plugins.load.paths`, and default plugin config for `openclaw-message-stream`.
+
+## Onboard this integration package
+
+This package ships both:
+
+ - `skills/openclaw-message-stream/SKILL.md`
+- `skills/openclaw-message-stream/scripts/generate-openclaw-config.mjs`
+
+If your environment supports local assistant skill folders, copy the skill folder into the local skill path:
+
+```bash
+SKILL_PATH="/path/to/assistant/skills"
+mkdir -p "$SKILL_PATH"
+cp -R ./skills/openclaw-message-stream "$SKILL_PATH/"
+```
+
+Restart or reload your assistant if required by your environment.
+
+Environment examples:
+
+| Environment | Suggested skill path | Note |
+|---|---|---|
+| OpenClaw-native setup | `./skills` in your OpenClaw workspace | copy folder and load as a workspace skill bundle |
+| Codex | `$HOME/.codex/skills` | restart Codex after copy |
+| Claude-compatible local workflow | your local custom skills folder | use your existing local skill loading convention |
+
+After onboarding, use:
+
+```bash
+npm run openclaw:config
+```
+
+to generate a starter OpenClaw config, then run:
+
+```bash
+openclaw plugins list --json
+```
+
+to confirm `openclaw-message-stream` appears as a loaded plugin.
+
+OpenClaw-only quick path (always valid):
+
+```bash
+cp -R ./skills/openclaw-message-stream ./skills
+npm run openclaw:config
+```
+
 ## Modes
 
 `mode` controls runtime behavior:
