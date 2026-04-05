@@ -31,7 +31,7 @@ function writeOpenClawConfig() {
       enabled: true,
       allow: [PLUGIN_ID],
       load: {
-        paths: [PLUGIN_ROOT],
+        paths: [runner.pluginPathForHostConfig],
       },
     },
   };
@@ -67,7 +67,7 @@ hostDescribe(`openclaw plugin host e2e${hostSkipReason ? ` (${hostSkipReason})` 
     const plugin = parsed.plugins?.find((candidate) => candidate.id === PLUGIN_ID);
     expect(plugin).toBeDefined();
     expect(plugin?.status).toBe("loaded");
-    expect(plugin?.source).toContain(PLUGIN_ROOT);
+    expect(plugin?.source).toContain(runner.pluginPathForHostConfig);
   });
 
   it("discovers plugin metadata and /msgstream command via openclaw inspect", async () => {

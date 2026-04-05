@@ -1,6 +1,6 @@
 {
   "name": "@yuenwinyun/openclaw-message-stream",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Session message stream analysis plugin for OpenClaw",
   "scripts": {
     "smoke-check": "node scripts/smoke-check.cjs",
@@ -30,6 +30,9 @@
     "src/**/*.ts",
     "README.md",
     "tsconfig.json",
+    "scripts/openclaw-config.mjs",
+    "scripts/smoke-check.cjs",
+    "scripts/*.js",
     "skills/**/*"
   ],
   "devDependencies": {

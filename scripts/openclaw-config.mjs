@@ -43,13 +43,19 @@ function parseArgs() {
       process.exit(0);
     }
 
-    if (arg === "--config" && next) {
+    if (arg === "--config") {
+      if (!next) {
+        throw new Error("--config requires a file path");
+      }
       parsed.configPath = next;
       i += 1;
       continue;
     }
 
-    if (arg === "--action" && next) {
+    if (arg === "--action") {
+      if (!next) {
+        throw new Error("--action requires one of: upsert|remove");
+      }
       const action = next;
       if (action !== "upsert" && action !== "remove") {
         throw new Error(`Invalid action "${action}". Expected upsert|remove.`);
@@ -59,7 +65,10 @@ function parseArgs() {
       continue;
     }
 
-    if (arg === "--mode" && next) {
+    if (arg === "--mode") {
+      if (!next) {
+        throw new Error("--mode requires one of: one-shot|scheduled|streaming|hybrid");
+      }
       const mode = next;
       if (
         mode !== "one-shot" &&
@@ -74,19 +83,28 @@ function parseArgs() {
       continue;
     }
 
-    if (arg === "--plugin-root" && next) {
+    if (arg === "--plugin-root") {
+      if (!next) {
+        throw new Error("--plugin-root requires a path");
+      }
       parsed.pluginRoot = path.resolve(next);
       i += 1;
       continue;
     }
 
-    if (arg === "--plugin-id" && next) {
+    if (arg === "--plugin-id") {
+      if (!next) {
+        throw new Error("--plugin-id requires a plugin id");
+      }
       parsed.pluginId = next;
       i += 1;
       continue;
     }
 
-    if (arg === "--output" && next) {
+    if (arg === "--output") {
+      if (!next) {
+        throw new Error("--output requires a file path");
+      }
       parsed.outputPath = next;
       i += 1;
       continue;
@@ -100,6 +118,10 @@ function parseArgs() {
     if (arg === "--dry-run") {
       parsed.dryRun = true;
       continue;
+    }
+
+    if (arg.startsWith("--")) {
+      throw new Error(`Unknown option "${arg}". Use --help for usage.`);
     }
   }
 

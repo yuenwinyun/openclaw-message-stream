@@ -20,6 +20,7 @@ export type OpenClawHostRunner = {
   cliAvailable: boolean;
   dockerAvailable: boolean;
   useContainer: boolean;
+  pluginPathForHostConfig: string;
   runOpenClaw: (args: string[], options?: { timeoutMs?: number; input?: string }) => Promise<OpenClawCommandResult>;
 };
 
@@ -115,6 +116,7 @@ export function createOpenClawHostRunner(options: OpenClawHostRunnerOptions): Op
     return dockerVersion.status === 0;
   })();
   const useContainer = !cliAvailable && dockerAvailable;
+  const pluginPathForHostConfig = useContainer ? "/tmp/openclaw-message-stream" : pluginRoot;
 
   const dockerBaseArgs = [
     "run",
@@ -208,6 +210,7 @@ export function createOpenClawHostRunner(options: OpenClawHostRunnerOptions): Op
     cliAvailable,
     dockerAvailable,
     useContainer,
+    pluginPathForHostConfig,
     runOpenClaw,
   };
 }
