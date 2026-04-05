@@ -104,19 +104,31 @@ describe("message stream runtime e2e", () => {
     expect(report.sessionsProcessed).toBe(1);
     expect(gatewayClientStartMock).toHaveBeenCalledTimes(1);
     expect(gatewayRequestMock).toHaveBeenCalledTimes(1);
-    expect(gatewayRequestMock).toHaveBeenCalledWith("sessions.get", {
-      key: "session-a",
-      limit: 200,
-    });
+    expect(gatewayRequestMock).toHaveBeenCalledWith(
+      "sessions.get",
+      {
+        key: "session-a",
+        limit: 200,
+      },
+      expect.objectContaining({
+        timeoutMs: 12000,
+      }),
+    );
     expect(report.messagesScanned).toBe(1);
     expect(report.messagesAnalyzed).toBe(1);
     expect(report.matchesFound).toBe(1);
     expect(report.emitted).toBe(0);
     expect(report.errors).toBe(0);
-    expect(gatewayRequestMock).toHaveBeenCalledWith("sessions.get", {
-      key: "session-a",
-      limit: 200,
-    });
+    expect(gatewayRequestMock).toHaveBeenCalledWith(
+      "sessions.get",
+      {
+        key: "session-a",
+        limit: 200,
+      },
+      expect.objectContaining({
+        timeoutMs: 12000,
+      }),
+    );
     expect(checkpointStoreState.markSeen).toHaveBeenCalledTimes(1);
     expect(emitMessageMatchMock).not.toHaveBeenCalled();
     await runtime.stop();

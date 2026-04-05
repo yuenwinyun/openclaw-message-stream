@@ -93,6 +93,15 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, context: string): Promise<T> {
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Gateway request timed out after ${timeoutMs}ms while ${context}`));
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeout]);
+}
+
 function formatReportText(report: MessageStreamRunReport): string {
   const mode = report.mode;
   const lines = [
@@ -167,12 +176,17 @@ export class MessageStreamRuntime {
   public async runOnce(params?: RunOptions): Promise<MessageStreamRunReport> {
     const requestedMode = parseMode(params?.mode);
     const mode: MessageStreamMode = params?.mode ? requestedMode : this.config.mode;
-    const { report } = await this.scanAndReport({
-      mode,
-      sessionKeys: params?.sessionKeys,
-      dryRun: params?.dryRun,
-      includeSubscriptionRefresh: false,
-    });
+    const runTimeoutMs = Math.max(this.config.scan.intervalMs * 2, 30_000);
+    const { report } = await withTimeout(
+      this.scanAndReport({
+        mode,
+        sessionKeys: params?.sessionKeys,
+        dryRun: params?.dryRun,
+        includeSubscriptionRefresh: false,
+      }),
+      runTimeoutMs,
+      "one-shot run",
+    );
     this.logger.info(formatReportText(report));
     return report;
   }
@@ -422,7 +436,11 @@ export class MessageStreamRuntime {
   private async request<T>(method: string, params: Record<string, unknown>): Promise<T> {
     const client = await this.getGatewayClient();
     try {
-      return await client.request<T>(method, params);
+      return await withTimeout(
+        client.request<T>(method, params, { timeoutMs: 12_000 }),
+        15_000,
+        `calling ${method}`,
+      );
     } catch (err) {
       if (this.isStopping) {
         throw err;
@@ -435,7 +453,11 @@ export class MessageStreamRuntime {
       this.logger.warn(`[${PLUGIN_ID}] gateway request failed, reconnecting: ${String(err)}`);
       await this.resetGatewayClient();
       const retriedClient = await this.getGatewayClient();
-      return await retriedClient.request<T>(method, params, { timeoutMs: 12_000, expectFinal: true });
+      return await withTimeout(
+        retriedClient.request<T>(method, params, { timeoutMs: 12_000, expectFinal: true }),
+        15_000,
+        `calling ${method} after reconnect`,
+      );
     }
   }
 
