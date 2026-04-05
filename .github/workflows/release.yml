@@ -6,6 +6,11 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
+      publish_to_npm:
+        description: "Publish to npm after checks"
+        required: true
+        default: false
+        type: boolean
       run_release_checks:
         description: "Run e2e release checks before publishing"
         required: true
@@ -55,7 +60,7 @@ jobs:
         shell: bash
 
       - name: Publish to npm
-        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch') }}
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_to_npm) }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
