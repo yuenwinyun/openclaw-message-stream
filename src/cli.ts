@@ -13,6 +13,36 @@ type ParsedRunArgs = {
   dryRun: boolean;
 };
 
+const DEFAULT_MESSAGE_STREAM_ONE_SHOT_TIMEOUT_MS = 30_000;
+const CLI_ONE_SHOT_TIMEOUT_ENV = "OPENCLAW_MSGSTREAM_CLI_ONE_SHOT_TIMEOUT_MS";
+
+function parsePositiveTimeout(value: string | undefined, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.max(1_000, parsed);
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  context: string,
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`${context} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+      timeout.unref?.();
+    }),
+  ]);
+}
+
 function asMode(value: string): MessageStreamMode | null {
   const normalized = value.trim().toLowerCase();
   return ALLOWED_MODES.includes(normalized as MessageStreamMode)
@@ -86,7 +116,8 @@ function parseRunArgs(raw: string | undefined): ParsedRunArgs {
     if (
       token === "--session" ||
       token === "--sessions" ||
-      token === "--session-keys"
+      token === "--session-keys" ||
+      token === "--session-key"
     ) {
       const next = args[i + 1];
       if (next) {
@@ -99,7 +130,8 @@ function parseRunArgs(raw: string | undefined): ParsedRunArgs {
     if (
       token.startsWith("--session=") ||
       token.startsWith("--sessions=") ||
-      token.startsWith("--session-keys=")
+      token.startsWith("--session-keys=") ||
+      token.startsWith("--session-key=")
     ) {
       const value = token.includes("=") ? token.split("=", 2)[1] : "";
       result.sessionKeys.push(...splitCsvList(value));
@@ -122,9 +154,11 @@ function parseRunArgs(raw: string | undefined): ParsedRunArgs {
 
 function formatHelpText(): string {
   return [
+    "Usage: openclaw msgstream [mode] [options] [session_key...][,session2]",
     "Usage: /msgstream [mode] [options] [session_key...][,session2]",
     "Examples:",
-    "  /msgstream",
+    "  openclaw msgstream",
+    "  openclaw msgstream one-shot --dry-run",
     "  /msgstream one-shot --dry-run",
     "  /msgstream --mode scheduled --sessions session-a,session-b",
     "  /msgstream --help",
@@ -163,56 +197,91 @@ function formatRunSummary(input: {
   ].join("\n");
 }
 
+async function runMessageStream(
+  api: OpenClawPluginApi,
+  rawArgs: string | undefined,
+): Promise<{ text: string }> {
+  const parsed = parseRunArgs(rawArgs);
+  if (parsed.help) {
+    return { text: formatHelpText() };
+  }
+
+  if (parsed.invalidMode) {
+    return { text: formatModeError(parsed.invalidMode) };
+  }
+
+  const requestedMode = parsed.mode ?? "one-shot";
+  const runtimeConfig = api.runtime.config.loadConfig();
+  const stateDir = api.runtime.state.resolveStateDir();
+  const runtime = createMessageStreamRuntime({
+    api,
+    stateDir,
+    runtimeConfig,
+    modeOverride: requestedMode,
+  });
+
+  try {
+    const timeoutMs =
+      requestedMode === "one-shot"
+        ? parsePositiveTimeout(process.env[CLI_ONE_SHOT_TIMEOUT_ENV], DEFAULT_MESSAGE_STREAM_ONE_SHOT_TIMEOUT_MS)
+        : undefined;
+    const report = await runtime.runOnce({
+      mode: requestedMode,
+      sessionKeys: parsed.sessionKeys,
+      dryRun: parsed.dryRun,
+      timeoutMs,
+    });
+    await withTimeout(runtime.stop(), 5_000, "message stream runtime stop");
+    return {
+      text: formatRunSummary({
+        mode: report.mode,
+        report: formatReportText(report),
+        sessionKeys: parsed.sessionKeys,
+        dryRun: parsed.dryRun,
+      }),
+    };
+  } catch (err) {
+    try {
+      await withTimeout(runtime.stop(), 5_000, "message stream runtime stop");
+    } catch {
+      // noop
+    }
+    return {
+      text: `msgstream: run failed: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
 export function registerMessageStreamCommand(api: OpenClawPluginApi): void {
   api.registerCommand({
     name: "msgstream",
     description: "Scan and analyze OpenClaw session messages.",
     acceptsArgs: true,
     handler: async (ctx) => {
-      const parsed = parseRunArgs(ctx.args);
-      if (parsed.help) {
-        return { text: formatHelpText() };
-      }
-
-      if (parsed.invalidMode) {
-        return { text: formatModeError(parsed.invalidMode) };
-      }
-
-      const requestedMode = parsed.mode ?? "one-shot";
-      const runtimeConfig = api.runtime.config.loadConfig();
-      const stateDir = api.runtime.state.resolveStateDir();
-      const runtime = createMessageStreamRuntime({
-        api,
-        stateDir,
-        runtimeConfig,
-        modeOverride: requestedMode,
-      });
-
-      try {
-        const report = await runtime.runOnce({
-          mode: requestedMode,
-          sessionKeys: parsed.sessionKeys,
-          dryRun: parsed.dryRun,
-        });
-        await runtime.stop();
-        return {
-          text: formatRunSummary({
-            mode: report.mode,
-            report: formatReportText(report),
-            sessionKeys: parsed.sessionKeys,
-            dryRun: parsed.dryRun,
-          }),
-        };
-      } catch (err) {
-        try {
-          await runtime.stop();
-        } catch {
-          // noop
-        }
-        return {
-          text: `msgstream: run failed: ${err instanceof Error ? err.message : String(err)}`,
-        };
-      }
+      return runMessageStream(api, ctx.args);
     },
   });
+
+  api.registerCli(
+    ({ program }) => {
+      program
+        .command("msgstream [tokens...]")
+        .description("Scan and analyze OpenClaw session messages.")
+        .allowUnknownOption(true)
+        .action(async (tokens?: string[]) => {
+          const response = await runMessageStream(api, tokens?.join(" "));
+          process.stdout.write(`${response.text}\n`);
+        });
+    },
+    {
+      commands: ["msgstream"],
+      descriptors: [
+        {
+          name: "msgstream",
+          description: "Scan and analyze OpenClaw session messages.",
+          hasSubcommands: false,
+        },
+      ],
+    },
+  );
 }

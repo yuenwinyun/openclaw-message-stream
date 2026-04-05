@@ -74,6 +74,7 @@ const { registerMessageStreamCommand } = await import("../src/cli.js");
         error: vi.fn(),
         debug: vi.fn(),
       },
+      registerCli: vi.fn(),
     };
   }
 
@@ -128,6 +129,16 @@ const { registerMessageStreamCommand } = await import("../src/cli.js");
     expect(runtimeCall.modeOverride).toBe("scheduled");
     expect(result.text).toContain("Mode: scheduled");
     expect(result.text).toContain("Dry run: true");
+    expect(result.text).toContain("Session filter: session-a, session-b");
+  });
+
+  it("supports --session-key alias for session filtering", async () => {
+    const { command } = registerCommand(createApi());
+
+    const result = await command.handler({
+      args: "one-shot --session-key session-a --session-key session-b",
+    });
+
     expect(result.text).toContain("Session filter: session-a, session-b");
   });
 });

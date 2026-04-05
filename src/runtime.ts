@@ -32,6 +32,7 @@ type RunOptions = {
   mode?: MessageStreamMode;
   sessionKeys?: string[];
   dryRun?: boolean;
+  timeoutMs?: number;
 };
 
 type ScanResult = {
@@ -102,6 +103,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, context: string)
   return Promise.race([promise, timeout]);
 }
 
+function toPositiveInt(value: unknown, fallback: number): number {
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.max(1_000, parsed);
+}
+
 function formatReportText(report: MessageStreamRunReport): string {
   const mode = report.mode;
   const lines = [
@@ -124,6 +133,7 @@ export class MessageStreamRuntime {
   private checkpointStore: CheckpointStore | null = null;
   private gatewayClient: GatewayClient | null = null;
   private isStopping = false;
+  private stopInProgress: Promise<void> | null = null;
   private activeTimer: NodeJS.Timeout | null = null;
   private scanInProgress = false;
   private subscribedSessionKeys = new Set<string>();
@@ -176,7 +186,10 @@ export class MessageStreamRuntime {
   public async runOnce(params?: RunOptions): Promise<MessageStreamRunReport> {
     const requestedMode = parseMode(params?.mode);
     const mode: MessageStreamMode = params?.mode ? requestedMode : this.config.mode;
-    const runTimeoutMs = Math.max(this.config.scan.intervalMs * 2, 30_000);
+    const runTimeoutMs =
+      requestedMode === "one-shot"
+        ? toPositiveInt(params?.timeoutMs, 30_000)
+        : Math.max(this.config.scan.intervalMs * 2, 30_000);
     const { report } = await withTimeout(
       this.scanAndReport({
         mode,
@@ -192,32 +205,48 @@ export class MessageStreamRuntime {
   }
 
   public async stop(): Promise<void> {
-    this.isStopping = true;
-
-    if (this.activeTimer) {
-      clearInterval(this.activeTimer);
-      this.activeTimer = null;
+    if (this.stopInProgress) {
+      return this.stopInProgress;
     }
 
-    if (this.checkpointStore) {
-      try {
-        await this.checkpointStore.close();
-      } catch (err) {
-        this.logger.error(`[${PLUGIN_ID}] failed to close checkpoint state: ${String(err)}`);
+    const stop = async () => {
+      this.isStopping = true;
+
+      if (this.activeTimer) {
+        clearInterval(this.activeTimer);
+        this.activeTimer = null;
       }
-      this.checkpointStore = null;
-    }
 
-    if (this.gatewayClient) {
-      try {
-        await this.gatewayClient.stopAndWait({ timeoutMs: 1_000 });
-      } catch (err) {
-        this.logger.error(`[${PLUGIN_ID}] failed to close gateway connection: ${String(err)}`);
+      if (this.checkpointStore) {
+        try {
+          await this.checkpointStore.close();
+        } catch (err) {
+          this.logger.error(`[${PLUGIN_ID}] failed to close checkpoint state: ${String(err)}`);
+        }
+        this.checkpointStore = null;
       }
-      this.gatewayClient = null;
-    }
 
-    this.subscribedSessionKeys.clear();
+      if (this.gatewayClient) {
+        try {
+          await this.gatewayClient.stopAndWait({ timeoutMs: 1_000 });
+        } catch (err) {
+          this.logger.error(`[${PLUGIN_ID}] failed to close gateway connection: ${String(err)}`);
+        }
+        this.gatewayClient = null;
+      }
+
+      this.subscribedSessionKeys.clear();
+    };
+
+    const pendingStop = stop();
+    this.stopInProgress = pendingStop;
+    try {
+      await pendingStop;
+    } finally {
+      if (this.stopInProgress === pendingStop) {
+        this.stopInProgress = null;
+      }
+    }
   }
 
   private async runPeriodic(mode: MessageStreamMode): Promise<void> {

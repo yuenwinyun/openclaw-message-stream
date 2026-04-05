@@ -87,6 +87,28 @@ hostDescribe(`openclaw plugin host e2e${hostSkipReason ? ` (${hostSkipReason})` 
     expect((plugin?.services ?? parsed.services ?? []).includes(PLUGIN_ID)).toBe(true);
   });
 
+  it("exposes msgstream as a root CLI command", { timeout: OPENCLAW_TEST_TIMEOUT_MS }, async () => {
+    const result = await runner.runOpenClaw(["msgstream", "--help"], { timeoutMs: 60_000 });
+    expect(result.output).toContain("Usage: openclaw msgstream");
+  });
+
+  it("accepts session-key through msgstream root CLI help path", { timeout: OPENCLAW_TEST_TIMEOUT_MS }, async () => {
+    const result = await runner.runOpenClaw(["msgstream", "--session-key", "e2e-session", "--help"], {
+      timeoutMs: 60_000,
+    });
+    expect(result.output).toContain("Usage: openclaw msgstream");
+    expect(result.output).toContain("Scan and analyze OpenClaw session messages.");
+  });
+
+  it("runs msgstream one-shot from the root CLI without hanging", { timeout: OPENCLAW_TEST_TIMEOUT_MS }, async () => {
+    const result = await runner.runOpenClaw(["msgstream", "one-shot", "--dry-run", "--session-key", "e2e-session"], {
+      timeoutMs: 60_000,
+    });
+    expect(result.output).toContain("Mode: one-shot");
+    expect(result.output).toContain("Dry run: true");
+    expect(result.output).toContain("Session filter: e2e-session");
+  });
+
   it("passes openclaw plugin doctor checks after registration", { timeout: OPENCLAW_TEST_TIMEOUT_MS }, async () => {
     const output = await runner.runOpenClaw(["plugins", "doctor"]);
     expect(output.output).toContain("No plugin issues detected.");

@@ -1,11 +1,11 @@
 {
   "name": "@yuenwinyun/openclaw-message-stream",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Session message stream analysis plugin for OpenClaw",
   "scripts": {
     "smoke-check": "node scripts/smoke-check.cjs",
     "release:check": "pnpm run test:e2e",
-    "release:publish": "node -e \"const { execSync } = require('node:child_process'); const otp = process.env.NPM_OTP ? ` --otp ${process.env.NPM_OTP}` : ''; execSync(`pnpm publish --access public --no-git-checks${otp}`, { stdio: 'inherit' })\"",
+    "release:publish": "node -e \"const { execSync } = require('node:child_process'); const otp = process.env.NPM_OTP ? (' --otp ' + process.env.NPM_OTP) : ''; execSync('pnpm publish --access public --no-git-checks' + otp, { stdio: 'inherit' });\"",
     "release": "pnpm run release:check && pnpm version patch && pnpm run release:publish",
     "openclaw:config": "node skills/openclaw-message-stream/scripts/generate-openclaw-config.mjs --output openclaw-message-stream.config.json",
     "openclaw:config:merge": "node scripts/openclaw-config.mjs --config openclaw.config.json --write",
