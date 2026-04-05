@@ -98,6 +98,12 @@ OpenClaw/plugin cleanup:
 - remove the plugin entry `openclaw-message-stream` from your OpenClaw config
 - restart/reload OpenClaw config and services so plugin unregistration takes effect
 
+One-line offboard command (do once):
+
+```bash
+SKILL_PATH="${SKILL_PATH:-$HOME/.codex/skills}" && (npm remove @yuenwinyun/openclaw-message-stream || pnpm remove @yuenwinyun/openclaw-message-stream) && rm -rf "$SKILL_PATH/openclaw-message-stream"
+```
+
 ## Modes
 
 `mode` controls runtime behavior:
