@@ -55,7 +55,9 @@ jobs:
           fi
 
       - name: Run release checks
-        if: github.event_name == 'workflow_dispatch' && inputs.run_release_checks
+        if: |
+          github.event_name == 'workflow_dispatch' && inputs.run_release_checks ||
+          github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         run: pnpm run release:check
         shell: bash
 
