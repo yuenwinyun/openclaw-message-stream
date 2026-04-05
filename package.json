@@ -4,6 +4,9 @@
   "description": "Session message stream analysis plugin for OpenClaw",
   "scripts": {
     "smoke-check": "node scripts/smoke-check.cjs",
+    "release:check": "npm run test:e2e",
+    "release:publish": "node -e \"const { execSync } = require('node:child_process'); const otp = process.env.NPM_OTP ? ` --otp ${process.env.NPM_OTP}` : ''; execSync(`npm publish --access public --no-git-checks${otp}`, { stdio: 'inherit' })\"",
+    "release": "npm run release:check && npm version patch && npm run release:publish",
     "openclaw:config": "node skills/openclaw-message-stream/scripts/generate-openclaw-config.mjs --output openclaw-message-stream.config.json",
     "openclaw:config:merge": "node scripts/openclaw-config.mjs --config openclaw.config.json --write",
     "openclaw:config:remove": "node scripts/openclaw-config.mjs --config openclaw.config.json --action remove --write",

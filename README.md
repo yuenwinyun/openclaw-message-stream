@@ -343,3 +343,28 @@ npm run test:e2e
 ```
 
 If `OPENCLAW_GATEWAY_URL` is not set, the OpenClaw integration test is skipped automatically.
+
+## Release steps
+
+Release flow for this package:
+
+```bash
+# from repo root
+npm run release:check
+npm version patch
+npm run release:publish
+```
+
+`npm run release` runs the check + `npm version patch` + publish in one command.
+
+If your npm account has 2FA enabled, provide an OTP:
+
+```bash
+NPM_OTP=123456 npm run release
+```
+
+or
+
+```bash
+npm publish --access public --otp 123456 --no-git-checks
+```
